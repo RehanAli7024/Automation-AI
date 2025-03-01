@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -8,12 +9,22 @@ from typing import Dict, Optional, List
 import logging
 import traceback
 import time
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Google Form Automation API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 class FormField(BaseModel):
     question_text: str
@@ -30,6 +41,15 @@ def setup_driver():
         options = uc.ChromeOptions()
         options.headless = True
         options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        
+        # Additional options for running on Render
+        if os.environ.get('RENDER'):
+            options.binary_location = os.environ.get('CHROME_BIN', '/usr/bin/google-chrome')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--remote-debugging-port=9222')
+        
         driver = uc.Chrome(options=options)
         return driver
     except Exception as e:
