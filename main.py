@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -20,10 +21,10 @@ app = FastAPI(title="Google Form Automation API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class FormField(BaseModel):
@@ -36,26 +37,25 @@ class FormData(BaseModel):
     form_fields: Dict[str, str]
 
 def setup_driver():
-    """Setup and return an undetected ChromeDriver"""
+    """Setup and return a Chrome WebDriver configured for Render"""
     try:
-        options = uc.ChromeOptions()
-        options.headless = True
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-software-rasterizer')
+        chrome_options.add_argument('--remote-debugging-port=9222')
         
-        # Additional options for running on Render
         if os.environ.get('RENDER'):
-            options.binary_location = os.environ.get('CHROME_BIN', '/usr/bin/google-chrome')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--remote-debugging-port=9222')
+            chrome_options.binary_location = "/usr/bin/chromium-browser"
         
-        driver = uc.Chrome(options=options)
+        driver = webdriver.Chrome(options=chrome_options)
         return driver
     except Exception as e:
         logger.error(f"Failed to setup driver: {str(e)}")
         logger.error(traceback.format_exc())
-        raise Exception("Failed to initialize Chrome driver")
+        raise Exception(f"Failed to initialize Chrome driver: {str(e)}")
 
 @app.post("/extract-form-fields")
 async def extract_form_fields(form_url: str = Query(..., description="The Google Form URL to extract fields from")):
